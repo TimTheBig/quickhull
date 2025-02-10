@@ -1067,7 +1067,7 @@ fn heavy_sea_urchin_test() {
 
     for s in 0..iterations {
         let mut rng = rand::rngs::StdRng::seed_from_u64(s);
-        let dist = rand::distributions::Standard;
+        let dist = rand::distr::StandardUniform;
 
         fn rot_z(point: DVec3, angle: f64) -> DVec3 {
             let e1 = angle.cos() * point[0] - angle.sin() * point[1];
