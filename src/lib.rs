@@ -850,8 +850,10 @@ fn inner_outer_test() {
     let p3 = DVec3::new(0.0, 0.0, 1.0);
     let outer_point = DVec3::new(0.0, 0.0, 10.0);
     let inner_point = DVec3::new(0.0, 0.0, 0.0);
-    let whithin_point = DVec3::new(1.0, 0.0, 0.0);
-    let points = vec![p1, p2, p3, outer_point, inner_point, whithin_point];
+    let within_point = DVec3::new(1.0, 0.0, 0.0);
+
+    let points = vec![p1, p2, p3, outer_point, inner_point, within_point];
+
     let face = Face::from_triangle(&points, [0, 1, 2]);
     let outer = position_from_face(&points, &face, 3);
     assert!(outer > 0.0);
@@ -869,6 +871,7 @@ fn octahedron_test() {
     let p4 = DVec3::new(-1.0, 0.0, 0.0);
     let p5 = DVec3::new(0.0, -1.0, 0.0);
     let p6 = DVec3::new(0.0, 0.0, -1.0);
+
     let (_v, i) = ConvexHull::try_new(&[p1, p2, p3, p4, p5, p6], None)
         .unwrap()
         .vertices_indices();
@@ -883,6 +886,7 @@ fn octahedron_translation_test() {
     let p4 = DVec3::new(-1.0, 0.0, 0.0);
     let p5 = DVec3::new(0.0, -1.0, 0.0);
     let p6 = DVec3::new(0.0, 0.0, -1.0);
+
     let points: Vec<_> = [p1, p2, p3, p4, p5, p6]
         .into_iter()
         .map(|p| p + DVec3::splat(10.0))
@@ -903,6 +907,7 @@ fn cube_test() {
     let p6 = DVec3::new(-1.0, 1.0, -1.0);
     let p7 = DVec3::new(-1.0, -1.0, 1.0);
     let p8 = DVec3::new(-1.0, -1.0, -1.0);
+
     let (_v, i) = ConvexHull::try_new(&[p1, p2, p3, p4, p5, p6, p7, p8], None)
         .unwrap()
         .vertices_indices();
@@ -919,6 +924,7 @@ fn cube_volume_test() {
     let p6 = DVec3::new(0.0, 2.0, 0.0);
     let p7 = DVec3::new(0.0, 0.0, 2.0);
     let p8 = DVec3::new(0.0, 0.0, 0.0);
+
     let cube = ConvexHull::try_new(&[p1, p2, p3, p4, p5, p6, p7, p8], None).unwrap();
     assert_eq!(cube.volume(), 8.0);
 }
@@ -946,6 +952,7 @@ fn cube_support_point_test() {
     let p6 = DVec3::new(0.0, 1.0, 0.0);
     let p7 = DVec3::new(0.0, 0.0, 1.0);
     let p8 = DVec3::new(0.0, 0.0, 0.0);
+
     let cube = ConvexHull::try_new(&[p1, p2, p3, p4, p5, p6, p7, p8], None).unwrap();
     assert_eq!(cube.support_point(DVec3::splat(0.5)), p1);
 }
@@ -960,6 +967,7 @@ fn flat_test() {
     let p6 = DVec3::new(-1.0, 1.0, 10.0);
     let p7 = DVec3::new(-1.0, -1.0, 10.0);
     let p8 = DVec3::new(-1.0, -1.0, 10.0);
+
     assert!(ConvexHull::try_new(&[p1, p2, p3, p4, p5, p6, p7, p8], None)
         .is_err_and(|err| err == ErrorKind::DegenerateInput(DegenerateInput::Coplanar)));
 }
@@ -987,6 +995,7 @@ fn simplex_may_degenerate_test() {
         DVec3::new(0.0, 0.0, 2.0),
         DVec3::new(1.0, 0.0, 2.0),
     ];
+
     let (_v, _i) = ConvexHull::try_new(&points, None)
         .unwrap()
         .vertices_indices();
@@ -1012,6 +1021,7 @@ fn simplex_may_degenerate_test_2() {
         DVec3::new(0., 0., 2.),
         DVec3::new(1., 0., 2.),
     ];
+
     let indices = [4, 5, 1, 11, 1, 5, 1, 11, 10, 10, 2, 1, 5, 8, 11];
     let points = indices.iter().map(|i| vertices[*i]).collect::<Vec<_>>();
     let (_v, _i) = ConvexHull::try_new(&points, None)
@@ -1027,12 +1037,14 @@ fn sphere_points(divisions: usize) -> Vec<DVec3> {
         let e3 = point[2];
         DVec3::new(e1, e2, e3)
     }
+
     fn rot_x(point: DVec3, angle: f64) -> DVec3 {
         let e1 = point[0];
         let e2 = angle.cos() * point[1] - angle.sin() * point[2];
         let e3 = angle.sin() * point[1] + angle.cos() * point[2];
         DVec3::new(e1, e2, e3)
     }
+
     let mut points = Vec::new();
     let unit_y = DVec3::Y;
     for step_x in 0..divisions {
@@ -1044,6 +1056,7 @@ fn sphere_points(divisions: usize) -> Vec<DVec3> {
             points.push(p);
         }
     }
+
     points
 }
 
@@ -1075,12 +1088,14 @@ fn heavy_sea_urchin_test() {
             let e3 = point[2];
             DVec3::new(e1, e2, e3)
         }
+
         fn rot_x(point: DVec3, angle: f64) -> DVec3 {
             let e1 = point[0];
             let e2 = angle.cos() * point[1] - angle.sin() * point[2];
             let e3 = angle.sin() * point[1] + angle.cos() * point[2];
             DVec3::new(e1, e2, e3)
         }
+
         let mut points = Vec::new();
         let dev = 100;
         let unit_y = DVec3::Y;
