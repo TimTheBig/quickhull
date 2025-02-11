@@ -3,14 +3,14 @@
 //! A Rust-implementation of the Quickhull algorithm for computing convex hulls for point sets.
 //!
 //! This is a simplified and cleaned up version of [chull](https://github.com/u65xhd/chull),
-//! focusing on making the algorithm robust and efficient for the 2D and 3D cases.
+//! focusing on making the algorithm robust and efficient for the 3D cases.
 //!
 //! ## References
 //!
 //! - C. Bradford Barber et al. 1996. [The Quickhull Algorithm for Convex Hulls](https://www.cise.ufl.edu/~ungor/courses/fall06/papers/QuickHull.pdf) (the original paper)
 //! - Dirk Gregorius. GDC 2014. [Physics for Game Programmers: Implementing Quickhull](https://archive.org/details/GDC2014Gregorius)
 
-#![warn(missing_docs)]
+#![warn(missing_docs, clippy::all)]
 
 use glam::{DMat4, DVec3};
 
@@ -36,6 +36,7 @@ pub struct Face {
 
 impl Face {
     /// Creates a [`Face`] using the `points` with the given `indices`.
+    #[must_use]
     pub fn from_triangle(points: &[DVec3], indices: [usize; 3]) -> Self {
         let points_of_face = indices.map(|i| points[i]);
         let normal = triangle_normal(points_of_face);
@@ -82,7 +83,7 @@ impl fmt::Display for ErrorKind {
             ErrorKind::Degenerated => write!(f, "degenerated"),
             ErrorKind::DegenerateInput(kind) => write!(f, "degenerate input: {:?}", kind),
             ErrorKind::RoundOffError(msg) => {
-                write!(f, "erroneous results by roundoff error: {}", msg)
+                write!(f, "erroneous results by roundoff error: {msg}")
             }
         }
     }
@@ -418,23 +419,17 @@ impl ConvexHull {
             // Link the faces to their neighbors.
             for (i, key_a) in new_keys.iter().enumerate() {
                 let points_of_new_face_a: HashSet<_> = self
-                    .faces
-                    .get(key_a)
-                    .unwrap()
-                    .indices
-                    .iter()
-                    .copied()
+                    .faces.get(key_a)
+                    .unwrap().indices
+                    .iter().copied()
                     .collect();
 
                 for key_b in new_keys.iter().skip(i + 1) {
                     let points_of_new_face_b: HashSet<_> = self
                         .faces
-                        .get(key_b)
-                        .unwrap()
-                        .indices
-                        .iter()
-                        .copied()
-                        .collect();
+                        .get(key_b).unwrap()
+                        .indices.iter()
+                        .copied().collect();
 
                     let num_intersection_points = points_of_new_face_a
                         .intersection(&points_of_new_face_b)
@@ -464,8 +459,7 @@ impl ConvexHull {
                 let mut degenerate = true;
 
                 for assigned_point_index in &assigned_point_indices {
-                    let position =
-                        position_from_face(&self.points, new_face, *assigned_point_index);
+                    let position = position_from_face(&self.points, new_face, *assigned_point_index);
 
                     if position == 0.0 {
                         continue;
@@ -498,7 +492,7 @@ impl ConvexHull {
                 let mut checked_point_set = HashSet::new();
 
                 for visible_face in &visible_faces {
-                    for (outside_point_index, _) in visible_face.outside_points.iter() {
+                    for (outside_point_index, _) in &visible_face.outside_points {
                         if assigned_point_indices.contains(outside_point_index)
                             || checked_point_set.contains(outside_point_index)
                         {
@@ -545,8 +539,8 @@ impl ConvexHull {
     }
 
     /// Adds the given points to the point set, attempting to update the convex hull.
-    pub fn add_points(&mut self, points: &[DVec3]) -> Result<(), ErrorKind> {
-        self.points.append(&mut points.to_vec());
+    pub fn add_points(&mut self, points: &mut Vec<DVec3>) -> Result<(), ErrorKind> {
+        self.points.append(points);
         self.update(None)?;
         self.remove_unused_points();
 
@@ -558,14 +552,15 @@ impl ConvexHull {
     }
 
     /// Returns the vertices and indices of the convex hull.
-    pub fn vertices_indices(&self) -> (Vec<DVec3>, Vec<usize>) {
+    #[must_use]
+    pub fn vertices_indices(self) -> (Vec<DVec3>, Vec<usize>) {
         let mut indices = Vec::new();
         for face in self.faces.values() {
             for i in &face.indices {
                 indices.push(*i);
             }
         }
-        (self.points.to_vec(), indices)
+        (self.points, indices)
     }
 
     pub(crate) fn remove_unused_points(&mut self) {
@@ -593,8 +588,8 @@ impl ConvexHull {
 
         let mut vertices = Vec::new();
 
-        for (index, _i) in indices_list.iter() {
-            vertices.push(self.points[*index]);
+        for (index, _) in indices_list {
+            vertices.push(self.points[index]);
         }
 
         self.points = vertices;
@@ -604,7 +599,8 @@ impl ConvexHull {
     /// Sums up volumes of tetrahedrons from an arbitrary point to all other points
     ///
     /// Returns non-negative value, for extremely small objects might return 0.0
-    pub fn volume(&self) -> f64 {
+    #[must_use]
+    pub fn volume(self) -> f64 {
         let (hull_vertices, hull_indices) = self.vertices_indices();
         let reference_point = hull_vertices[hull_indices[0]].extend(1.0);
         let mut volume = 0.0;
@@ -622,15 +618,13 @@ impl ConvexHull {
 
     /// Checks if the convex hull is convex with the given tolerance.
     fn is_convex(&self) -> bool {
-        for face in self.faces.values() {
-            if position_from_face(&self.points, face, 0) > 0.0 {
-                return false;
-            }
-        }
-        true
+        self.faces.values().into_iter().any(|face| {
+            position_from_face(&self.points, face, 0) <= 0.0
+        })
     }
 
     /// Computes the point on the convex hull that is furthest in the given direction.
+    #[must_use]
     pub fn support_point(&self, direction: DVec3) -> DVec3 {
         let mut max = self.points[0].dot(direction);
         let mut index = 0;
@@ -657,7 +651,7 @@ fn initialize_visible_set(
 ) -> HashSet<usize> {
     let mut visible_set = HashSet::new();
     visible_set.insert(face_key);
-    let mut neighbor_stack: Vec<_> = face.neighbor_faces.to_vec();
+    let mut neighbor_stack: Vec<_> = face.neighbor_faces.clone();
     let mut visited_neighbor = HashSet::new();
     while let Some(neighbor_key) = neighbor_stack.pop() {
         if visited_neighbor.contains(&neighbor_key) {
@@ -670,7 +664,7 @@ fn initialize_visible_set(
         let pos = position_from_face(points, neighbor, furthest_point_index);
         if pos > 0.0 {
             visible_set.insert(neighbor_key);
-            neighbor_stack.append(&mut neighbor.neighbor_faces.to_vec());
+            neighbor_stack.append(&mut neighbor.neighbor_faces.clone());
         }
     }
     visible_set

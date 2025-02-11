@@ -1,6 +1,6 @@
 [package]
 name = "quickhull"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 authors = ["Joona Aalto <jondolf.dev@gmail.com>"]
@@ -10,11 +10,17 @@ keywords = ["convex", "hull", "geo", "geometry"]
 categories = ["algorithms", "mathematics", "game-development"]
 
 [dependencies]
-glam = "0.27"
+glam = "0.29"
 robust = "1.1"
 
 [dev-dependencies]
 rand = "0.9"
+criterion = "0.5"
 
 [profile.bench]
 debug = true
+
+[[bench]]
+path = "bench/sea_urchin.rs"
+name = "sea_urchin"
+harness = false

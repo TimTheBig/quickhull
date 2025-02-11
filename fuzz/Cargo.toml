@@ -1,0 +1,21 @@
+[package]
+name = "quickhull-fuzz"
+version = "0.0.0"
+authors = ["Automatically generated"]
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+
+quickhull = { version = "*", path = "../" }
+glam = "0.29"
+
+[[bin]]
+name = "sea_urchin"
+path = "fuzz_targets/sea_urchin.rs"
+test = false
+doc = false
