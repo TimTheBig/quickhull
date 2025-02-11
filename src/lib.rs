@@ -551,6 +551,19 @@ impl ConvexHull {
         Ok(())
     }
 
+    /// Adds the given iterator of points to the point set, attempting to update the convex hull.
+    pub fn add_iter_points(&mut self, points: impl Iterator<Item = DVec3>) -> Result<(), ErrorKind> {
+        self.points.extend(points);
+        self.update(None)?;
+        self.remove_unused_points();
+
+        if self.points.len() <= 3 {
+            return Err(ErrorKind::Degenerated);
+        }
+
+        Ok(())
+    }
+
     /// Returns the vertices and indices of the convex hull.
     #[must_use]
     pub fn vertices_indices(self) -> (Vec<DVec3>, Vec<usize>) {
