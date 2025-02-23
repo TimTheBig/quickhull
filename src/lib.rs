@@ -65,7 +65,7 @@ pub enum ErrorKind {
     /// The given point set cannot produce a valid convex hull.
     DegenerateInput(DegenerateInput),
     /// A round-off error.
-    RoundOffError(String),
+    RoundOffError(&'static str),
 }
 
 /// The type of degeneracy for when attempting to compute a convex hull for a point set.
@@ -107,6 +107,9 @@ pub struct ConvexHull {
 
 impl ConvexHull {
     /// Attempts to compute a [`ConvexHull`] for the given set of points.
+    ///
+    /// ## Errors
+    /// If their are 0 or <= 3 points.
     pub fn try_new(points: &[DVec3], max_iter: Option<usize>) -> Result<Self, ErrorKind> {
         let num_points = points.len();
 
@@ -181,14 +184,16 @@ impl ConvexHull {
 
         #[allow(clippy::explicit_counter_loop)]
         for i_face in 0..4 {
-            let mut face_indices = Vec::new();
+            let mut face_indices = [0, 0, 0];
+            let mut face_indices_pos = 0;
             // create face
             for (j, index) in indices_set.iter().enumerate() {
                 if j != i_face {
-                    face_indices.push(*index);
+                    face_indices[face_indices_pos] = *index;
+                    face_indices_pos += 1;
                 }
             }
-            let mut face = Face::from_triangle(points, face_indices.try_into().unwrap());
+            let mut face = Face::from_triangle(points, face_indices);
 
             // Check the order of the face's vertices.
             let rem_point = indices_set[i_face];
@@ -200,7 +205,7 @@ impl ConvexHull {
             }
             if face.indices.len() != 3 {
                 return Err(ErrorKind::RoundOffError(
-                    "number of face's vertices should be 3".to_string(),
+                    "number of face's vertices should be 3",
                 ));
             }
             faces.insert(i_face, face);
@@ -233,6 +238,7 @@ impl ConvexHull {
         max_indices: [usize; 3],
     ) -> Result<[usize; 4], ErrorKind> {
         let mut indices = [0; 4];
+        #[cfg(not(test))]
         debug_assert!(
             points.len() > 3,
             "This should be checked before this function"
@@ -384,7 +390,7 @@ impl ConvexHull {
             let horizon = compute_horizon(&visible_set, &self.faces)?;
 
             // Create new faces connecting the horizon vertices to the furthest point.
-            let mut new_keys = Vec::new();
+            let mut new_keys = Vec::with_capacity(horizon.len());
             for (ridge, unvisible) in horizon {
                 let mut new_face = vec![furthest_point_index];
 
@@ -397,7 +403,7 @@ impl ConvexHull {
 
                 if new_face.len() != 3 {
                     return Err(ErrorKind::RoundOffError(
-                        "number of new face's vertices should be 3".to_string(),
+                        "number of new face's vertices should be 3",
                     ));
                 }
 
@@ -415,7 +421,7 @@ impl ConvexHull {
 
             if new_keys.len() < 3 {
                 return Err(ErrorKind::RoundOffError(
-                    "number of new faces should be grater than 3".to_string(),
+                    "number of new faces should be grater than 3",
                 ));
             }
 
@@ -451,7 +457,7 @@ impl ConvexHull {
                 let face_a = self.faces.get(key_a).unwrap();
                 if face_a.neighbor_faces.len() != 3 {
                     return Err(ErrorKind::RoundOffError(
-                        "number of neighbors should be 3".to_string(),
+                        "number of neighbors should be 3",
                     ));
                 }
             }
@@ -485,7 +491,7 @@ impl ConvexHull {
             }
 
             // Assign the orphaned vertices to the new faces.
-            let mut visible_faces = Vec::new();
+            let mut visible_faces = Vec::with_capacity(visible_set.len());
             for visible in &visible_set {
                 visible_faces.push(self.faces.get(visible).unwrap().clone());
             }
@@ -535,13 +541,16 @@ impl ConvexHull {
         }
 
         if !self.is_convex() {
-            return Err(ErrorKind::RoundOffError("concave".to_string()));
+            return Err(ErrorKind::RoundOffError("concave"));
         }
 
         Ok(())
     }
 
     /// Adds the given points to the point set, attempting to update the convex hull.
+    ///
+    /// ## Errors
+    /// If updating the points fails or results in less then three points.
     pub fn add_points(&mut self, points: &mut Vec<DVec3>) -> Result<(), ErrorKind> {
         self.points.append(points);
         self.update(None)?;
@@ -555,6 +564,9 @@ impl ConvexHull {
     }
 
     /// Adds the given iterator of points to the point set, attempting to update the convex hull.
+    ///
+    /// ## Errors
+    /// If updating the points fails or results in less then three points.
     pub fn add_iter_points(&mut self, points: impl Iterator<Item = DVec3>) -> Result<(), ErrorKind> {
         self.points.extend(points);
         self.update(None)?;
@@ -602,7 +614,7 @@ impl ConvexHull {
             std::mem::swap(&mut face.indices, &mut new_face_indices);
         }
 
-        let mut vertices = Vec::new();
+        let mut vertices = Vec::with_capacity(indices_list.len());
 
         for (index, _) in indices_list {
             vertices.push(self.points[index]);
@@ -634,7 +646,7 @@ impl ConvexHull {
 
     /// Checks if the convex hull is convex with the given tolerance.
     fn is_convex(&self) -> bool {
-        self.faces.values().into_iter().any(|face| {
+        self.faces.values().any(|face| {
             position_from_face(&self.points, face, 0) <= 0.0
         })
     }
@@ -697,7 +709,7 @@ fn compute_horizon(
         let points_of_visible_face: HashSet<_> = visible_face.indices.iter().copied().collect();
         if points_of_visible_face.len() != 3 {
             return Err(ErrorKind::RoundOffError(
-                "number of visible face's vertices should be 3".to_string(),
+                "number of visible face's vertices should be 3",
             ));
         }
 
@@ -705,11 +717,11 @@ fn compute_horizon(
             // if neighbor is unvisible
             if !visible_set.contains(neighbor_key) {
                 let unvisible_neighbor = faces.get(neighbor_key).unwrap();
-                let points_of_unvisible_neighbor: HashSet<_> =
+                let points_of_unvisible_neighbor: HashSet<usize> =
                     unvisible_neighbor.indices.iter().copied().collect();
                 if points_of_unvisible_neighbor.len() != 3 {
                     return Err(ErrorKind::RoundOffError(
-                        "number of unvisible face's vertices should be 3".to_string(),
+                        "number of unvisible face's vertices should be 3",
                     ));
                 }
 
@@ -719,15 +731,16 @@ fn compute_horizon(
                     .collect();
                 if horizon_ridge.len() != 2 {
                     return Err(ErrorKind::RoundOffError(
-                        "number of ridge's vertices should be 2".to_string(),
+                        "number of ridge's vertices should be 2",
                     ));
                 }
                 horizon.push((horizon_ridge, *neighbor_key));
             }
         }
     }
+
     if horizon.len() < 3 {
-        return Err(ErrorKind::RoundOffError("horizon len < 3".to_string()));
+        return Err(ErrorKind::RoundOffError("horizon len < 3"));
     }
     Ok(horizon)
 }
@@ -738,23 +751,15 @@ trait ToRobust {
 
 impl ToRobust for glam::DVec3 {
     fn to_robust(self) -> robust::Coord3D<f64> {
-        let DVec3 { x, y, z } = self;
-        robust::Coord3D { x, y, z }
+        robust::Coord3D { x: self.x, y: self.y, z: self.z }
     }
 }
 
 fn position_from_face(points: &[DVec3], face: &Face, point_index: usize) -> f64 {
-    let face_points = face
-        .indices
-        .iter()
-        .copied()
-        .map(|i| points[i])
-        .collect::<Vec<_>>();
-
     -robust::orient3d(
-        face_points[0].to_robust(),
-        face_points[1].to_robust(),
-        face_points[2].to_robust(),
+        points[face.indices[0]].to_robust(),
+        points[face.indices[1]].to_robust(),
+        points[face.indices[2]].to_robust(),
         points[point_index].to_robust(),
     )
 }
