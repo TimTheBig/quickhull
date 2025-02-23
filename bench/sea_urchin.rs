@@ -12,7 +12,7 @@ fn criterion_benchmark(c: &mut Criterion) {
                 let dist = rand::distr::StandardUniform;
 
                 let dev: usize = 100;
-                let mut points = Vec::with_capacity(dev.pow(2));
+                let mut points = Vec::with_capacity(dev * dev);
 
                 let unit_y = DVec3::Y;
                 for step_x in 0..dev {

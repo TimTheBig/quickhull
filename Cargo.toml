@@ -1,16 +1,16 @@
 [package]
 name = "quickhull"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 authors = ["Joona Aalto <jondolf.dev@gmail.com>"]
 description = "Quickhull algorithm for computing convex hulls."
 readme = "README.md"
 keywords = ["convex", "hull", "geo", "geometry"]
-categories = ["algorithms", "mathematics", "game-development"]
+categories = ["algorithms", "mathematics", "game-development", "3d"]
 
 [dependencies]
-glam = "0.29"
+glam = "0.30"
 robust = "1.1"
 
 [dev-dependencies]
